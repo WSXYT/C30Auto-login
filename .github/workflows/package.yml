@@ -28,24 +28,29 @@ jobs:
         pip install pyinstaller
 
     - name: Build with PyInstaller
-      # --noupx: 关键参数！禁止压缩 DLL，解决 "Failed to extract opengl32sw.dll" 报错
-      # --hidden-import: 显式声明动态加载的库
-      # 移除 --collect-all 以减小体积，PyInstaller 默认分析通常足够
+      # 改为 --onedir (默认模式)，不再打包成单文件
+      # --contents-directory "lib": 将所有 DLL 和依赖放入 lib 子文件夹，保持根目录清爽
       run: |
-        pyinstaller --noconsole --onefile --clean --noupx --hidden-import sentry_sdk --hidden-import tomli --name "C30Auto-login" main.py
+        pyinstaller --noconsole --onedir --clean --noupx --contents-directory "lib" --hidden-import sentry_sdk --hidden-import tomli --name "C30Auto-login" main.py
 
     - name: Prepare Release Artifacts
-      # 创建发布文件夹，包含 exe 和默认配置、说明文档
+      # 创建发布文件夹
       shell: pwsh
       run: |
         New-Item -ItemType Directory -Force -Path release
-        Copy-Item dist\C30Auto-login.exe -Destination release\
+        
+        # 1. 核心程序：将 dist/C30Auto-login 文件夹下的所有内容（exe + 依赖库）复制到 release 根目录
+        Copy-Item -Path "dist\C30Auto-login\*" -Destination release\ -Recurse
+
+        # 2. 文档与配置：复制到 release 根目录，与 exe 同级
         Copy-Item README.md -Destination release\
         Copy-Item LICENSE -Destination release\
         Copy-Item TEMPLATE_GUIDE.md -Destination release\
-        # 完整复制 resources 目录及其内容（包含模板文件与说明文档）
+        
+        # 3. 资源文件：复制 resources 到 release 根目录
         Copy-Item -Path resources -Destination release\ -Recurse
-        # 复制默认配置模板（如果存在）
+        
+        # 4. 配置文件
         if (Test-Path config.toml) { Copy-Item config.toml -Destination release\ }
 
     - name: Upload Build Artifact
