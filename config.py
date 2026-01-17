@@ -24,7 +24,13 @@ except Exception:  # noqa: BLE001
         tomllib = None
 
 # 当前项目根目录（与本文件同级）
-BASE_DIR = Path(__file__).resolve().parent
+# 适配 PyInstaller 打包环境：如果是打包后运行，使用 exe 所在目录
+import sys
+if getattr(sys, 'frozen', False):
+    BASE_DIR = Path(sys.executable).parent
+else:
+    BASE_DIR = Path(__file__).resolve().parent
+
 # 默认配置文件路径：与代码放在同一目录（优先使用可注释的 TOML）
 DEFAULT_CONFIG_PATH = BASE_DIR / "config.toml"
 

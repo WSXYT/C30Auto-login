@@ -1,0 +1,60 @@
+name: Build and Package C30Auto-login
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-windows:
+    # 仅当提交信息或 PR 标题包含 "开始打包" 时运行
+    if: "contains(github.event.head_commit.message, '开始打包') || contains(github.event.pull_request.title, '开始打包')"
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build with PyInstaller
+      # 使用 --onefile 打包成单文件
+      # --noconsole 隐藏控制台窗口
+      # --name 指定输出文件名
+      # 注意：config.toml 和 resources/ 是外部文件，不打包进 exe，以便用户修改
+      run: |
+        pyinstaller --noconsole --onefile --name "C30Auto-login" main.py
+
+    - name: Prepare Release Artifacts
+      # 创建发布文件夹，包含 exe 和默认配置、说明文档
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path release
+        Copy-Item dist\C30Auto-login.exe -Destination release\
+        Copy-Item README.md -Destination release\
+        Copy-Item LICENSE -Destination release\
+        Copy-Item TEMPLATE_GUIDE.md -Destination release\
+        # 完整复制 resources 目录及其内容（包含模板文件）
+        Copy-Item -Path resources -Destination release\ -Recurse
+        # 移除 resources 目录下的所有 .md 文件（如说明文档），确保发布包更干净，只保留图片
+        if (Test-Path release\resources) {
+            Get-ChildItem -Path release\resources -Filter *.md -Recurse | Remove-Item -Force
+        }
+        # 复制默认配置模板（如果存在）
+        if (Test-Path config.toml) { Copy-Item config.toml -Destination release\ }
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: C30Auto-login-Windows
+        path: release/

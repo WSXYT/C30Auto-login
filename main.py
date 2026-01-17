@@ -167,12 +167,18 @@ def main() -> int:
     banner.show()
 
     # 8. 启动后台线程执行自动化任务
+    # 确定基准目录：打包环境下为 exe 所在目录，开发环境下为代码所在目录
+    if getattr(sys, 'frozen', False):
+        base_dir = Path(sys.executable).parent
+    else:
+        base_dir = Path(__file__).resolve().parent
+
     # 将自动化逻辑放入子线程，防止界面卡死
     automator = C30ImageAutomator(
         account=account,
         password=password,
         config=config,
-        base_dir=Path(__file__).resolve().parent
+        base_dir=base_dir
     )
     automator.app_instance = app
 

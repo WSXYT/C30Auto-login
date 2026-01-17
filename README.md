@@ -63,6 +63,20 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## 获取可执行文件 (无需安装 Python)
+
+本项目支持通过 GitHub Actions 自动构建 Windows 可执行文件。
+
+1.  在 GitHub 仓库的 **Actions** 页面找到最新的构建产物。
+2.  下载 `C30Auto-login-Windows` 压缩包。
+3.  解压后目录结构如下：
+    *   `C30Auto-login.exe`: 主程序
+    *   `config.toml`: 配置文件
+    *   `resources/templates/`: 模板图片目录（其中已为您准备好目录结构与必要的图片模板）
+    *   `TEMPLATE_GUIDE.md`: 模板制作参考指南
+4.  请检查 `resources/templates/` 目录下的图片是否符合您的实际场景，必要时参考指南进行替换。
+5.  双击 `C30Auto-login.exe` 即可运行。
+
 ## 配置说明
 
 ### 1. 准备模板图片
