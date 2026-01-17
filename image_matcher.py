@@ -50,7 +50,18 @@ def _load_template(path: Path) -> np.ndarray:
     """读取模板图片并转换为灰度图。"""
 
     _ensure_opencv()
-    img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+    
+    # fix: cv2.imread 在 Windows 下不支持中文路径，改用 imdecode
+    try:
+        # np.fromfile 读取原始字节流
+        data = np.fromfile(str(path), dtype=np.uint8)
+        # cv2.imdecode 解码
+        img = cv2.imdecode(data, cv2.IMREAD_GRAYSCALE)
+    except Exception as e:
+        # 若发生异常（如文件被占用等），记录并设为 None
+        logger.debug(f"imdecode 读取失败: {e}")
+        img = None
+
     if img is None:
         raise FileNotFoundError(f"模板图片无法读取：{path}")
     return img
