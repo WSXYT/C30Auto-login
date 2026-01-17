@@ -44,12 +44,8 @@ jobs:
         Copy-Item README.md -Destination release\
         Copy-Item LICENSE -Destination release\
         Copy-Item TEMPLATE_GUIDE.md -Destination release\
-        # 完整复制 resources 目录及其内容（包含模板文件）
+        # 完整复制 resources 目录及其内容（包含模板文件与说明文档）
         Copy-Item -Path resources -Destination release\ -Recurse
-        # 移除 resources 目录下的所有 .md 文件（如说明文档），确保发布包更干净，只保留图片
-        if (Test-Path release\resources) {
-            Get-ChildItem -Path release\resources -Filter *.md -Recurse | Remove-Item -Force
-        }
         # 复制默认配置模板（如果存在）
         if (Test-Path config.toml) { Copy-Item config.toml -Destination release\ }
 
