@@ -1,0 +1,10 @@
+loguru
+pyautogui
+opencv-python
+numpy
+pillow
+pywin32
+psutil
+PyQt6
+tomli; python_version < "3.11"
+sentry-sdk

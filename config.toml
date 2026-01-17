@@ -1,0 +1,69 @@
+# C30 自动登录工具配置文件
+
+[logging]
+# 日志等级：DEBUG/INFO/WARNING/ERROR
+level = "INFO"
+# 日志目录（相对或绝对路径）
+dir = "logs"
+
+[automation]
+# 步骤失败最大重试次数
+max_retries = 2
+# 步骤回退总次数限制（超过此次数则程序报错退出）
+max_fallbacks = 6
+# 步骤1（上课按钮）特殊重试次数（失败后回退步骤0）
+on_course_retries = 2
+# 重试间隔（秒）
+retry_interval = 0.5
+# 单步骤等待超时（秒）
+step_timeout = 12.0
+# 每次鼠标/键盘动作间隔（秒）
+pause = 0.2
+# 模板匹配阈值（越高越严格）
+match_threshold = 0.82
+# 输入框最低阈值（降阈值下限）
+input_threshold_min = 0.45
+# 输入框降阈值步长
+input_threshold_step = 0.03
+# 点击后端：pyautogui / win32api / sendinput
+click_backend = "sendinput"
+# 调试等级：2 表示跳过点击上课按钮
+debug_level = 0
+
+[ui]
+# 顶部滚动条显示文字
+banner_text = "正在运行C30自动登录 请勿触摸一体机"
+# 顶部滚动条高度（像素）
+banner_height = 80
+# 执行前警告弹窗倒计时（秒）
+warning_timeout = 10
+
+[templates]
+# 图像识别模板路径（可多个）
+sidebar_button = ["resources/templates/sidebar_button.png"]
+on_course = ["resources/templates/on_course.png"]
+account_input = ["resources/templates/account_input.png"]
+password_input = ["resources/templates/password_input.png"]
+login_button = ["resources/templates/login_button.png"]
+
+[regions]
+# 限制识别区域 [x, y, w, h]，空数组表示全屏
+sidebar_button = []
+on_course = []
+login_area = []
+
+[fallback_offsets]
+# 相对于登录按钮的输入框偏移 [dx, dy]，空数组表示不启用
+account_from_login = []
+password_from_login = []
+
+[credentials]
+# 账号与密码（不建议提交到公共仓库）
+account = ""
+password = ""
+
+[app]
+# C30 可执行文件路径（未检测到进程时用于启动）
+exe_path = "D:\\Program Files (x86)\\Datedu\\teach\\1.3.1460.0\\teach\\teachingtools\\teach.exe"
+# 启动后等待时间（秒）
+startup_wait = 15.0
