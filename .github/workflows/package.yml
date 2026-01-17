@@ -28,12 +28,11 @@ jobs:
         pip install pyinstaller
 
     - name: Build with PyInstaller
-      # 使用 --onefile 打包成单文件
-      # --noconsole 隐藏控制台窗口
-      # --name 指定输出文件名
-      # 注意：config.toml 和 resources/ 是外部文件，不打包进 exe，以便用户修改
+      # --noupx: 关键参数！禁止压缩 DLL，解决 "Failed to extract opengl32sw.dll" 报错
+      # --hidden-import: 显式声明动态加载的库
+      # 移除 --collect-all 以减小体积，PyInstaller 默认分析通常足够
       run: |
-        pyinstaller --noconsole --onefile --name "C30Auto-login" main.py
+        pyinstaller --noconsole --onefile --clean --noupx --hidden-import sentry_sdk --hidden-import tomli --name "C30Auto-login" main.py
 
     - name: Prepare Release Artifacts
       # 创建发布文件夹，包含 exe 和默认配置、说明文档
