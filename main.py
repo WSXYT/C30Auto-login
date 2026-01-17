@@ -17,6 +17,12 @@ import signal
 from argparse import ArgumentParser
 from pathlib import Path
 
+# 防止 Noconsole 模式下 argparse 报错崩溃 (AttributeError: 'NoneType' object has no attribute 'write')
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
+
 # 设置 Qt 平台环境变量，确保高 DPI 支持
 os.environ["QT_QPA_PLATFORM"] = "windows:dpiawareness=1"
 
@@ -98,8 +104,18 @@ def _ensure_admin() -> bool:
         return True
 
     logger.warning("当前未以管理员权限运行，正在尝试请求提权...")
+    
     # 重新拼接参数，确保带空格的路径被正确引用
-    params = " ".join([f'"{arg}"' if " " in arg else arg for arg in sys.argv])
+    # 注意：打包后的 exe 运行时，sys.executable 为程序本身，ShellExecute 的 params 不应再次包含程序路径 (sys.argv[0])
+    # 而脚本运行时，sys.executable 为 python.exe，params 需要包含脚本路径 (sys.argv[0])
+    if getattr(sys, 'frozen', False):
+        # 打包环境：排除 argv[0] (exe 路径)，只传递后续参数
+        args_to_pass = sys.argv[1:]
+    else:
+        # 脚本环境：完整传递 argv (脚本路径 + 参数)
+        args_to_pass = sys.argv
+
+    params = " ".join([f'"{arg}"' if " " in arg else arg for arg in args_to_pass])
     
     # 使用 ShellExecuteW 触发 UAC 弹窗
     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, None, 1)
@@ -116,6 +132,10 @@ def main() -> int:
     """
     # 允许 Ctrl+C 终止进程（避免 Qt 占用使得无法通过 KeyboardInterrupt 退出）
     signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    # 兼容双击直接运行：如果没有参数，默认自动追加 "login" 子命令
+    if len(sys.argv) == 1:
+        sys.argv.append("login")
 
     parser = _build_parser()
     args = parser.parse_args()
