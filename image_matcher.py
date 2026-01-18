@@ -51,19 +51,25 @@ def _load_template(path: Path) -> np.ndarray:
 
     _ensure_opencv()
     
-    # fix: cv2.imread 在 Windows 下不支持中文路径，改用 imdecode
+    # fix: 彻底解决 Windows 中文路径问题
+    # np.fromfile 有时对 Unicode 路径支持不稳定，改为 open() + np.frombuffer
     try:
-        # np.fromfile 读取原始字节流
-        data = np.fromfile(str(path), dtype=np.uint8)
-        # cv2.imdecode 解码
+        if not path.exists():
+            raise FileNotFoundError(f"文件不存在: {path}")
+
+        # 使用 standard python open 读取二进制流，最稳妥
+        with open(path, "rb") as f:
+            bytes_data = f.read()
+        
+        data = np.frombuffer(bytes_data, dtype=np.uint8)
         img = cv2.imdecode(data, cv2.IMREAD_GRAYSCALE)
     except Exception as e:
-        # 若发生异常（如文件被占用等），记录并设为 None
-        logger.debug(f"imdecode 读取失败: {e}")
+        # 若发生异常（如文件被占用、权限不足、解码失败），记录
+        logger.error(f"读取或解码模板失败: {path}\n异常信息: {e}")
         img = None
 
     if img is None:
-        raise FileNotFoundError(f"模板图片无法读取：{path}")
+        raise FileNotFoundError(f"模板图片无法读取（可能已损坏或非图片格式）：{path}")
     return img
 
 

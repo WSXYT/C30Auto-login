@@ -161,6 +161,41 @@ class ScrollingBanner(QWidget):
         self.timer.timeout.connect(self.scroll_text)
         self.timer.start(16)
 
+        # 添加右下角关闭按钮 (X)
+        self.close_btn = QPushButton("×", self)
+        self.close_btn.setFixedSize(24, 24)
+        self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.close_btn.setToolTip("点击终止程序")
+        # 样式：半透明灰色背景，悬停变红
+        self.close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 0, 0, 0.2);
+                color: rgba(255, 255, 255, 0.8);
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                border-radius: 3px;
+                font-family: Arial;
+                font-size: 18px;
+                font-weight: bold;
+                padding-bottom: 2px;
+            }
+            QPushButton:hover {
+                background-color: #e74c3c;
+                color: white;
+                border-color: #c0392b;
+            }
+        """)
+        self.close_btn.clicked.connect(self._force_stop)
+        # 定位到右下角 (留出 5px 边距)
+        self.close_btn.move(self.width() - 29, self.height() - 29)
+
+    def _force_stop(self):
+        """强制终止程序。"""
+        import sys
+        self.timer.stop()
+        self.close()
+        QApplication.instance().quit()
+        sys.exit(0)
+
     def paintEvent(self, event):
         """自定义绘制：背景、条纹、滚动文字。"""
 
