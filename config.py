@@ -84,6 +84,16 @@ class FallbackOffsetConfig:
 
 
 @dataclass
+class MatchClickOffsetConfig:
+    """模板匹配后的点击偏移（用于“识别图标/文本 -> 点击右侧输入框”的场景）。"""
+
+    # 账号输入框：识别到模板中心后，点击偏移 (dx, dy)
+    account: tuple[int, int] | None = None
+    # 密码输入框：识别到模板中心后，点击偏移 (dx, dy)
+    password: tuple[int, int] | None = None
+
+
+@dataclass
 class TemplateConfig:
     """模板路径配置（可为多模板数组）。"""
 
@@ -150,6 +160,8 @@ class AppConfig:
     templates: TemplateConfig = field(default_factory=TemplateConfig)
     regions: RegionConfig = field(default_factory=RegionConfig)
     fallback_offsets: FallbackOffsetConfig = field(default_factory=FallbackOffsetConfig)
+    # 新增点击偏移配置
+    click_offsets: MatchClickOffsetConfig = field(default_factory=MatchClickOffsetConfig)
     credentials: CredentialConfig = field(default_factory=CredentialConfig)
     app: AppProcessConfig = field(default_factory=AppProcessConfig)
     ui: UIConfig = field(default_factory=UIConfig)
@@ -214,9 +226,11 @@ def default_config_dict() -> dict[str, Any]:
             ],
             "account_input": [
                 "resources/templates/account_input.png",
+                "resources/templates/account_input_selected.png",
             ],
             "password_input": [
                 "resources/templates/password_input.png",
+                "resources/templates/password_input_selected.png",
             ],
             "login_button": [
                 "resources/templates/login_button.png",
@@ -224,6 +238,7 @@ def default_config_dict() -> dict[str, Any]:
         },
         "regions": {"sidebar_button": None, "on_course": None, "login_area": None},
         "fallback_offsets": {"account_from_login": None, "password_from_login": None},
+        "click_offsets": {"account": None, "password": None},
         "credentials": {"account": "", "password": ""},
         "app": {"exe_path": "", "startup_wait": 5.0},
         "ui": {
@@ -280,10 +295,17 @@ warning_timeout = 10
 
 [templates]
 # 图像识别模板路径（可多个）
+# 建议为输入框提供“未选中”和“已选中”两种状态的截图，以提高识别稳定性
 sidebar_button = ["resources/templates/sidebar_button.png"]
 on_course = ["resources/templates/on_course.png"]
-account_input = ["resources/templates/account_input.png"]
-password_input = ["resources/templates/password_input.png"]
+account_input = [
+    "resources/templates/account_input.png", 
+    "resources/templates/account_input_selected.png"
+]
+password_input = [
+    "resources/templates/password_input.png", 
+    "resources/templates/password_input_selected.png"
+]
 login_button = ["resources/templates/login_button.png"]
 
 [regions]
@@ -296,6 +318,13 @@ login_area = []
 # 相对于登录按钮的输入框偏移 [dx, dy]，空数组表示不启用
 account_from_login = []
 password_from_login = []
+
+[click_offsets]
+# 识别到输入框模板后，点击位置的偏移量 [dx, dy]
+# 典型用法：模板截取左侧的“图标”或“文字”，通过偏移点击右侧的“输入框”
+# 例如：account = [150, 0] 表示向右偏 150 像素点击
+account = []
+password = []
 
 [credentials]
 # 账号与密码（不建议提交到公共仓库）
@@ -390,6 +419,10 @@ def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> AppConfig:
         account_from_login=_as_tuple2(merged.get("fallback_offsets", {}).get("account_from_login")),
         password_from_login=_as_tuple2(merged.get("fallback_offsets", {}).get("password_from_login")),
     )
+    click_offsets_cfg = MatchClickOffsetConfig(
+        account=_as_tuple2(merged.get("click_offsets", {}).get("account")),
+        password=_as_tuple2(merged.get("click_offsets", {}).get("password")),
+    )
     credentials_cfg = CredentialConfig(**_clean_dict(merged.get("credentials", {})))
     app_cfg = AppProcessConfig(**_clean_dict(merged.get("app", {})))
     ui_cfg = UIConfig(**_clean_dict(merged.get("ui", {})))
@@ -400,6 +433,7 @@ def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> AppConfig:
         templates=templates_cfg,
         regions=regions_cfg,
         fallback_offsets=fallback_cfg,
+        click_offsets=click_offsets_cfg,
         credentials=credentials_cfg,
         app=app_cfg,
         ui=ui_cfg,

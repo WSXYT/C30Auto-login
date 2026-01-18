@@ -42,8 +42,14 @@ warning_timeout = 10
 # 图像识别模板路径（可多个）
 sidebar_button = ["resources/templates/sidebar_button.png"]
 on_course = ["resources/templates/on_course.png"]
-account_input = ["resources/templates/account_input.png"]
-password_input = ["resources/templates/password_input.png"]
+account_input = [
+    "resources/templates/account_input.png",
+    "resources/templates/account_input_selected.png"
+]
+password_input = [
+    "resources/templates/password_input.png",
+    "resources/templates/password_input_selected.png"
+]
 login_button = ["resources/templates/login_button.png"]
 
 [regions]

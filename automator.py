@@ -207,21 +207,32 @@ class C30ImageAutomator(QObject):
     def _validate_templates(self) -> None:
         """校验所有模板图片是否存在。"""
 
-        missing: list[str] = []
-        # 汇总所有模板路径（可多模板）
-        for path in (
-            self.config.templates.sidebar_button
-            + self.config.templates.on_course
-            + self.config.templates.account_input
-            + self.config.templates.password_input
-            + self.config.templates.login_button
-        ):
-            abs_path = self._resolve_path(path)
-            if not abs_path.exists():
-                missing.append(str(abs_path))
-        if missing:
-            logger.error("以下模板图片不存在，请补充：\n" + "\n".join(missing))
-            raise FileNotFoundError("模板图片缺失")
+        missing_categories: list[str] = []
+        
+        # 定义需要校验的模板类别及其配置列表
+        categories = {
+            "sidebar_button": self.config.templates.sidebar_button,
+            "on_course": self.config.templates.on_course,
+            "account_input": self.config.templates.account_input,
+            "password_input": self.config.templates.password_input,
+            "login_button": self.config.templates.login_button,
+        }
+
+        for name, paths in categories.items():
+            valid_count = 0
+            for path in paths:
+                abs_path = self._resolve_path(path)
+                if abs_path.exists():
+                    valid_count += 1
+                else:
+                    logger.debug(f"模板文件缺失 (非致命): {abs_path}")
+            
+            if valid_count == 0:
+                missing_categories.append(name)
+                logger.error(f"类别 '{name}' 的所有模板文件均不存在！")
+
+        if missing_categories:
+            raise FileNotFoundError(f"关键模板缺失: {', '.join(missing_categories)}")
 
     def _resolve_path(self, path: str) -> Path:
         """将相对路径转为绝对路径。"""
@@ -347,18 +358,20 @@ class C30ImageAutomator(QObject):
         templates: list[str],
         text: str,
         region: tuple[int, int, int, int] | None,
-        fallback_offset: tuple[int, int] | None,
+        fallback_offset: tuple[int, int] | None,  # 回退：以登录按钮为基准
+        click_offset: tuple[int, int] | None = None,  # 正常：以识别模板为基准的相对点击偏移
         timeout: float | None = None,
         attempt: int | None = None,
     ) -> StepResult:
         """等待输入框并输入文本。
-
-        特点：
-        - 支持降阈值搜索，提高识别成功率。
-        - 若识别失败，支持以“登录按钮”为基准的偏移回退。
-        - timeout：搜索超时时间，None 则使用配置中的 step_timeout
-        - attempt：当前重试次数（用于日志）
+        ... (docstring unchanged) ...
         """
+
+        # 计算点击位置辅助函数
+        def get_click_point(match_center: tuple[int, int]) -> tuple[int, int]:
+            if click_offset:
+                return (match_center[0] + click_offset[0], match_center[1] + click_offset[1])
+            return match_center
 
         # 如果是由 _retry 调用，执行单次尝试
         if attempt is not None and timeout is None:
@@ -367,15 +380,14 @@ class C30ImageAutomator(QObject):
                 logger.info(
                     f"识别到输入框：{match.template_path.name}，置信度 {match.confidence:.2f}"
                 )
-                self._click_at(match.center)
+                self._click_at(get_click_point(match.center))
                 self._clear_and_type(text)
                 return StepResult(True, f"输入 {match.template_path.name}")
 
             # 尝试回退
-            if fallback_offset:
-                if self._try_fallback_by_login_button(fallback_offset):
-                    self._clear_and_type(text)
-                    return StepResult(True, "使用登录按钮偏移回退输入")
+            if fallback_offset and self._try_fallback_by_login_button(fallback_offset):
+                self._clear_and_type(text)
+                return StepResult(True, "使用登录按钮偏移回退输入")
 
             return StepResult(False, "未识别到输入框")
 
@@ -392,7 +404,7 @@ class C30ImageAutomator(QObject):
                 logger.info(
                     f"识别到输入框：{match.template_path.name}，置信度 {match.confidence:.2f}"
                 )
-                self._click_at(match.center)
+                self._click_at(get_click_point(match.center))
                 self._clear_and_type(text)
                 return StepResult(True, f"输入 {match.template_path.name}")
 
@@ -400,8 +412,7 @@ class C30ImageAutomator(QObject):
 
         # 兜底：用登录按钮的偏移来定位输入框
         if fallback_offset:
-            fallback = self._try_fallback_by_login_button(fallback_offset)
-            if fallback:
+            if self._try_fallback_by_login_button(fallback_offset):
                 self._clear_and_type(text)
                 return StepResult(True, "使用登录按钮偏移回退输入")
 
@@ -623,6 +634,7 @@ class C30ImageAutomator(QObject):
                 self.account,
                 self.config.regions.login_area,
                 self.config.fallback_offsets.account_from_login,
+                click_offset=self.config.click_offsets.account,
                 attempt=att
             ),
             "输入账号",
@@ -638,6 +650,7 @@ class C30ImageAutomator(QObject):
                 self.password,
                 self.config.regions.login_area,
                 self.config.fallback_offsets.password_from_login,
+                click_offset=self.config.click_offsets.password,
                 attempt=att
             ),
             "输入密码",

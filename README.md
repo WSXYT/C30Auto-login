@@ -85,8 +85,12 @@ pip install -r requirements.txt
 *   `sidebar_button.png` (侧边栏按钮，可选)
 *   `on_course.png` (上课按钮)
 *   `account_input.png` (账号输入框)
+*   `account_input_selected.png` (账号输入框-选中态，可选，推荐)
 *   `password_input.png` (密码输入框)
+*   `password_input_selected.png` (密码输入框-选中态，可选，推荐)
 *   `login_button.png` (登录按钮)
+
+💡 **提示**：为输入框同时准备“未选中”和“选中”两种状态的截图，可以大幅提高识别稳定性。程序会自动尝试匹配任意一张。
 
 ### 2. 编辑配置文件
 
@@ -134,7 +138,18 @@ python main.py login --debug-level 2
 
 ## 常见问题处理
 
-1.  **无法点击或无反应**：
+1.  **输入框内有文字导致识别失败（密码输了两遍）**：
+    *   **原因**：如果输入框内已经有文字，原本截取的“空白输入框图片”就匹配不上了。
+    *   **解决方法**：
+        1.  **重新截图**：不要截整个输入框，改为截取输入框左侧**固定不变的图标或文字（如“账号：”）**。
+        2.  **配置偏移**：在 `config.toml` 中设置 `[click_offsets]`，让程序识别到左侧图标后，向右偏 X 像素点击真正的输入区域。
+        ```toml
+        [click_offsets]
+        # 向右偏移 150 像素点击
+        account = [150, 0]
+        ```
+
+2.  **无法点击或无反应**：
     *   C30 程序通常需要**管理员权限**才能被控制。本工具会自动尝试提权，请在 UAC 弹窗中选择“是”。
     *   尝试在 `config.toml` 中修改 `click_backend` 为 `win32api` 或 `pyautogui`。
 
