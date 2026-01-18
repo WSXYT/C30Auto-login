@@ -36,9 +36,13 @@ from config import DEFAULT_CONFIG_PATH, load_config
 from logger_setup import init_logger
 from ui_components import ScrollingBanner, WarningDialog
 
+# 版本号 (CI构建时会自动替换此值)
+__version__ = "v0.0.0-dev"
+
 # 初始化 Sentry SDK
 sentry_sdk.init(
     dsn="https://8699bd10a68903162e72965024484190@o4510289605296128.ingest.de.sentry.io/4510726847332432",
+    release=__version__,
     # 收集用户信息（如 IP 地址、Header 等），详情参考官方文档
     send_default_pii=True,
     # 启用日志发送到 Sentry

@@ -3,17 +3,33 @@ name: Build and Package C30Auto-login
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build-windows:
-    # 仅当提交信息或 PR 标题包含 "开始打包" 时运行
-    if: "contains(github.event.head_commit.message, '开始打包') || contains(github.event.pull_request.title, '开始打包')"
+    # 只要提交信息包含 '开始打包' 关键词就运行
+    if: contains(github.event.head_commit.message, '开始打包')
     runs-on: windows-latest
+    
+    permissions:
+      contents: write # 允许创建 Release 和 Tag
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Parse Version from Commit
+      id: version_check
+      shell: pwsh
+      run: |
+        $msg = "${{ github.event.head_commit.message }}"
+        # 尝试提取版本号，例如 v1.0.0
+        if ($msg -match 'v\d+\.\d+\.\d+') {
+            $version = $matches[0]
+            echo "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+            Write-Host "Detected Release Request: $version"
+        } else {
+            Write-Host "No version found. Performing Build Only."
+        }
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -27,34 +43,62 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
 
+    - name: Inject Version Info (Release Only)
+      if: env.RELEASE_VERSION != ''
+      shell: pwsh
+      run: |
+        $version = $env:RELEASE_VERSION
+        Write-Host "Injecting version $version into files..."
+        
+        # 1. 替换 main.py 中的版本号 (供 Sentry 使用)
+        (Get-Content main.py) -replace '__version__ = "v0.0.0-dev"', "__version__ = `"$version`"" | Set-Content main.py
+        
+        # 2. 替换 CHANGELOG.md 中的 {Releases} 占位符 (供 Release 描述使用)
+        (Get-Content CHANGELOG.md) -replace '{Releases}', "$version" | Set-Content CHANGELOG.md
+
     - name: Build with PyInstaller
-      # 改为 --onedir (默认模式)，不再打包成单文件
-      # --contents-directory "lib": 将所有 DLL 和依赖放入 lib 子文件夹，保持根目录清爽
       run: |
         pyinstaller --noconsole --onedir --clean --noupx --contents-directory "lib" --hidden-import sentry_sdk --hidden-import tomli --name "C30Auto-login" main.py
 
     - name: Prepare Release Artifacts
-      # 创建发布文件夹
       shell: pwsh
       run: |
         New-Item -ItemType Directory -Force -Path release
         
-        # 1. 核心程序：将 dist/C30Auto-login 文件夹下的所有内容（exe + 依赖库）复制到 release 根目录
+        # 复制构建产物
         Copy-Item -Path "dist\C30Auto-login\*" -Destination release\ -Recurse
 
-        # 2. 文档与配置：复制到 release 根目录，与 exe 同级
+        # 复制文档与配置
         Copy-Item README.md -Destination release\
         Copy-Item LICENSE -Destination release\
         Copy-Item TEMPLATE_GUIDE.md -Destination release\
         
-        # 3. 资源文件：复制 resources 到 release 根目录
+        # 复制资源
         Copy-Item -Path resources -Destination release\ -Recurse
         
-        # 4. 配置文件
+        # 复制配置文件
         if (Test-Path config.toml) { Copy-Item config.toml -Destination release\ }
 
-    - name: Upload Build Artifact
+    - name: Zip Artifacts
+      shell: pwsh
+      run: |
+        Compress-Archive -Path release\* -DestinationPath C30Auto-login-Windows.zip
+
+    - name: Upload Build Artifact (Always)
       uses: actions/upload-artifact@v4
       with:
         name: C30Auto-login-Windows
-        path: release/
+        path: C30Auto-login-Windows.zip
+
+    - name: Create GitHub Release
+      if: env.RELEASE_VERSION != ''
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ env.RELEASE_VERSION }}
+        name: ${{ env.RELEASE_VERSION }}
+        files: C30Auto-login-Windows.zip
+        body_path: CHANGELOG.md
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

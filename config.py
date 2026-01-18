@@ -323,11 +323,11 @@ password_from_login = []
 # 识别到输入框模板后，点击位置的偏移量 [dx, dy]
 # 典型用法：模板截取左侧的“图标”或“文字”，通过偏移点击右侧的“输入框”
 # 例如：account = [150, 0] 表示向右偏 150 像素点击
-account = []
-password = []
+account = [150, 0]
+password = [150, 0]
 
 [credentials]
-# 账号与密码（不建议提交到公共仓库）
+# 账号与密码（不建议提交到公共仓库，建议使用命令行参数传入）
 account = ""
 password = ""
 
