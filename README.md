@@ -75,6 +75,12 @@ match_threshold = 0.82  # 图片匹配相似度阈值 (0.0-1.0)，越高越严�
 click_backend = "sendinput" # 点击方式：sendinput (推荐) / win32api / pyautogui
 debug_level = 0         # 调试模式：0=正常; 2=跳过点击上课按钮 (直接输账号)
 
+# 延迟重启：控制程序重启C30应用的时机
+# - false：程序启动时立即重启应用，确保干净状态
+# - true：程序启动时不重启，仅在步骤0（展开侧边栏）失败后才重启
+#   优点：减少不必要的重启，提高执行效率
+delay_restart_until_step0_fails = true
+
 # ================= 界面显示 =================
 [ui]
 banner_text = "正在运行C30自动登录 请勿触摸一体机" # 屏幕顶部横幅文字

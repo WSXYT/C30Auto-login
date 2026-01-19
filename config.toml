@@ -29,6 +29,9 @@ input_threshold_step = 0.03
 click_backend = "sendinput"
 # 调试等级：2 表示跳过点击上课按钮
 debug_level = 0
+# 智能重启：为 true 时程序启动后不立即重启应用，仅在步骤0失败后才重启
+# 设置为 false 则保持默认行为（程序启动时立即重启应用）
+delay_restart_until_step0_fails = true
 
 [ui]
 # 顶部滚动条显示文字
