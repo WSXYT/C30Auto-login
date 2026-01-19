@@ -174,10 +174,7 @@ def _as_tuple(value: Any) -> tuple[int, int, int, int] | None:
     - list/tuple 长度为 4 -> 转为 int 元组
     - 其他情况直接抛错，避免配置写错造成隐蔽问题
     """
-
-    if value is None:
-        return None
-    if isinstance(value, (list, tuple)) and len(value) == 0:
+    if value is None or (isinstance(value, (list, tuple)) and len(value) == 0):
         return None
     if isinstance(value, (list, tuple)) and len(value) == 4:
         return tuple(int(v) for v in value)
@@ -186,10 +183,7 @@ def _as_tuple(value: Any) -> tuple[int, int, int, int] | None:
 
 def _as_tuple2(value: Any) -> tuple[int, int] | None:
     """把任意值转换为偏移二元组 (dx, dy)。"""
-
-    if value is None:
-        return None
-    if isinstance(value, (list, tuple)) and len(value) == 0:
+    if value is None or (isinstance(value, (list, tuple)) and len(value) == 0):
         return None
     if isinstance(value, (list, tuple)) and len(value) == 2:
         return tuple(int(v) for v in value)

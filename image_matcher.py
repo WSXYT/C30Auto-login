@@ -17,20 +17,23 @@ from loguru import logger
 
 try:
     import cv2
+    # 模块加载时检查一次 OpenCV，避免每次函数调用都检查
+    if cv2 is None:
+        raise ImportError("cv2 导入失败")
+    _cv2_available = True
+    _cv2_import_error = None
 except Exception as e:  # noqa: BLE001
     # 记录导入失败的异常，便于抛错时提示
     cv2 = None
+    _cv2_available = False
     _cv2_import_error = e
-else:
-    _cv2_import_error = None
 
 import pyautogui
 
 
 def _ensure_opencv():
     """确保 OpenCV 可用，否则抛出清晰错误。"""
-
-    if cv2 is None:
+    if not _cv2_available:
         raise ImportError(f"无法导入 OpenCV：{_cv2_import_error}")
 
 
@@ -107,14 +110,24 @@ def find_template_center(
     - attempt：第几次检测（用于日志提示）
     - show_log：是否显示日志
     """
-
     _ensure_opencv()
+    
+    # 提前过滤不存在的文件
+    valid_paths = [p for p in template_paths if p.exists()]
+    if not valid_paths:
+        if show_log:
+            logger.warning(f"所有模板文件均不存在: {[p.name for p in template_paths]}")
+        return None
+    
     if show_log:
         attempt_str = f"第 {attempt} 次" if attempt is not None else ""
-        logger.info(f"正在{attempt_str}检测图片模板: {[p.name for p in template_paths]}")
+        logger.info(f"正在{attempt_str}检测图片模板: {[p.name for p in valid_paths]}")
 
     screenshot = _screenshot(region=region)
     best: MatchResult | None = None
+    
+    # 缓存屏幕边缘图，避免重复计算
+    screen_edges = None
 
     def _match(screen_img: np.ndarray, tmpl_img: np.ndarray) -> tuple[float, tuple[int, int]]:
         # 使用归一化相关系数进行模板匹配
@@ -122,7 +135,7 @@ def find_template_center(
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
         return float(max_val), max_loc
 
-    for path in template_paths:
+    for path in valid_paths:
         try:
             template = _load_template(path)
         except Exception as e:  # noqa: BLE001
@@ -134,7 +147,10 @@ def find_template_center(
         if max_val < threshold:
             # 边缘匹配兜底（文本变化影响较小）
             try:
-                screen_edges = _edges(screenshot)
+                # 懒加载屏幕边缘图
+                if screen_edges is None:
+                    screen_edges = _edges(screenshot)
+                
                 template_edges = _edges(template)
                 edge_threshold = max(threshold - 0.1, 0.6)
                 max_val, max_loc = _match(screen_edges, template_edges)

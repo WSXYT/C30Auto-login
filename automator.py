@@ -63,7 +63,6 @@ class C30ImageAutomator(QObject):
         - config：配置对象
         - base_dir：项目基准目录（用于解析相对模板路径）
         """
-
         super().__init__()
         self.account = account
         self.password = password
@@ -73,6 +72,12 @@ class C30ImageAutomator(QObject):
         self.app_instance = None
         # 设置 PyAutoGUI 全局操作节奏
         pyautogui.PAUSE = self.config.automation.pause
+        
+        # 性能优化：缓存解析后的模板路径
+        self._cached_paths = {}
+        
+        # 性能优化：缓存阈值序列（避免重复计算）
+        self._cached_thresholds = None
 
     def run(self) -> None:
         """自动化执行入口（支持步骤回退重试）。"""
@@ -194,14 +199,15 @@ class C30ImageAutomator(QObject):
 
     def _check_process_by_path(self, target_path: str) -> psutil.Process | None:
         """根据路径检测进程。"""
-        target_path = os.path.abspath(target_path) # 确保路径绝对化
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        target_path_obj = Path(target_path).resolve()
+        for proc in psutil.process_iter(['pid', 'name']):
             try:
-                # proc.cmdline() 返回一个列表，包含可执行文件和参数
-                if proc.info['cmdline'] and target_path in ' '.join(proc.info['cmdline']):
+                # 直接使用 exe() 方法获取可执行文件路径
+                proc_exe = Path(proc.exe()).resolve()
+                if proc_exe == target_path_obj:
                     return proc
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                continue # 忽略无权限或已结束的进程
+                continue  # 忽略无权限或已结束的进程
         return None
 
     def _validate_templates(self) -> None:
@@ -235,12 +241,19 @@ class C30ImageAutomator(QObject):
             raise FileNotFoundError(f"关键模板缺失: {', '.join(missing_categories)}")
 
     def _resolve_path(self, path: str) -> Path:
-        """将相对路径转为绝对路径。"""
-
+        """将相对路径转为绝对路径（带缓存）。"""
+        # 使用缓存避免重复解析
+        if path in self._cached_paths:
+            return self._cached_paths[path]
+        
         p = Path(path)
         if p.is_absolute():
-            return p
-        return (self.base_dir / p).resolve()
+            resolved = p
+        else:
+            resolved = (self.base_dir / p).resolve()
+        
+        self._cached_paths[path] = resolved
+        return resolved
 
     def _sleep(self, seconds: float) -> None:
         """带事件循环处理的休眠（UI 线程中会处理事件）。"""
@@ -420,19 +433,26 @@ class C30ImageAutomator(QObject):
 
     def _build_input_thresholds(self) -> list[float]:
         """生成输入框匹配阈值序列（从高到低）。"""
-
+        # 使用缓存避免重复计算
+        if self._cached_thresholds is not None:
+            return self._cached_thresholds
+        
         start = self.config.automation.match_threshold
         minimum = self.config.automation.input_threshold_min
-        step = self.config.automation.input_threshold_step
-        if step <= 0:
-            step = 0.03
+        step = max(self.config.automation.input_threshold_step, 0.03)
+        
         thresholds: list[float] = []
         value = start
         while value >= minimum:
             thresholds.append(round(value, 2))
             value -= step
-        if thresholds[-1] != minimum:
+        
+        # 确保最小值在列表中
+        if thresholds[-1] > minimum:
             thresholds.append(minimum)
+        
+        # 缓存结果
+        self._cached_thresholds = thresholds
         return thresholds
 
     def _click_at(self, point: tuple[int, int]) -> None:
