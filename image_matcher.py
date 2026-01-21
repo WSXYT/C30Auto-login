@@ -142,6 +142,16 @@ def find_template_center(
             logger.error(f"无法加载模板：{path}\n{e}")
             continue
 
+        # 校验图片尺寸：如果模板比截图还大，OpenCV 会抛出异常
+        th, tw = template.shape[:2]
+        sh, sw = screenshot.shape[:2]
+        if tw > sw or th > sh:
+            if show_log:
+                logger.warning(
+                    f"模板 {path.name} 尺寸 ({tw}x{th}) 大于搜索区域 ({sw}x{sh})，跳过匹配"
+                )
+            continue
+
         # 先进行常规模板匹配
         max_val, max_loc = _match(screenshot, template)
         if max_val < threshold:

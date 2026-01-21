@@ -44,6 +44,9 @@
 [app]
 # 修改为你本机 C30 的真实路径，注意路径中的斜杠
 exe_path = "D:\\Program Files (x86)\\Datedu\\teach\\1.3.1460.0\\teach\\teachingtools\\teach.exe"
+# 分别配置上课按钮和登录窗口的类名（使用 Spy++ 获取），空则不限制
+window_class_on_course = ""
+window_class_login = ""
 ```
 
 如果没有配置正确的路径，程序将无法自动启动 C30 软件（只能操作已经手动打开的窗口）。
@@ -100,6 +103,7 @@ login_button = ["resources/templates/login_button.png"]
 # ================= 账号密码 =================
 [credentials]
 # 账号与密码（不建议提交到公共仓库，建议使用命令行参数传入）
+# 密码可为空：如果为空，程序将跳过输入密码的步骤（直接点击登录），适用于已记住密码的场景
 account = ""
 password = ""
 
@@ -136,8 +140,10 @@ password = [150, 0]
 2.  输入以下命令：
 
 ```powershell
+```powershell
 # 此时使用的是 set 的账号密码，优先级高于配置文件
-.\C30Auto-login.exe login -a "zhangsan" -p "password123"
+# 注意：密码选项 -p 是可选的，如果未提供且配置文件也没写，将跳过密码输入步骤（适用于已保存密码的情况）
+.\C30Auto-login.exe login -a "zhangsan"
 ```
 
 ### 3. 调试运行

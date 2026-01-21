@@ -39,19 +39,6 @@ from ui_components import ScrollingBanner, WarningDialog
 # 版本号 (CI构建时会自动替换此值)
 __version__ = "v0.0.0-dev"
 
-# 初始化 Sentry SDK
-sentry_sdk.init(
-    dsn="https://8699bd10a68903162e72965024484190@o4510289605296128.ingest.de.sentry.io/4510726847332432",
-    release=__version__,
-    # 收集用户信息（如 IP 地址、Header 等），详情参考官方文档
-    send_default_pii=True,
-    # 启用日志发送到 Sentry
-    enable_logs=True,
-    # 设置 tracing 采样率为 1.0，即捕获 100% 的事务
-    traces_sample_rate=1.0,
-)
-
-
 def _build_parser() -> ArgumentParser:
     """构建并配置命令行参数解析器。"""
     parser = ArgumentParser(
@@ -158,24 +145,36 @@ def main() -> int:
         print(f"配置文件加载失败: {e}")
         return 1
 
-    # 3. 校验子命令
+    # 3. 初始化Sentry
+    sentry_sdk.init(
+        dsn="https://8699bd10a68903162e72965024484190@o4510289605296128.ingest.de.sentry.io/4510726847332432",
+        release=__version__,
+        # 收集用户信息（如 IP 地址、Header 等），详情参考官方文档
+        send_default_pii=True,
+        # 启用日志发送到 Sentry
+        enable_logs=True,
+        # 设置 tracing 采样率为 1.0，即捕获 100% 的事务
+        traces_sample_rate=1.0,
+    )
+
+    # 4. 校验子命令
     if args.command != "login":
         parser.print_help()
         logger.error("请指定子命令，例如：C30Auto-login login -a 账号 -p 密码")
         return 2
 
-    # 4. 参数合并：命令行参数优先于配置文件
+    # 5. 参数合并：命令行参数优先于配置文件
     account = args.account or config.credentials.account
     password = args.password or config.credentials.password
 
     if args.debug_level is not None:
         config.automation.debug_level = int(args.debug_level)
 
-    # 5. 初始化 UI 应用程序
+    # 6. 初始化 UI 应用程序
     # 获取现有实例或创建新实例
     app = QApplication.instance() or QApplication(sys.argv)
 
-    # 6. 警告弹窗逻辑
+    # 7. 警告弹窗逻辑
     # 阻塞式弹窗，用户确认后才继续
     dialog = WarningDialog(timeout=config.ui.warning_timeout)
     # dialog.exec() 返回值通常为 1 (Accepted) 或 0 (Rejected)
@@ -183,14 +182,14 @@ def main() -> int:
         logger.info("用户在警告弹窗中取消或未确认，程序终止。")
         return 0
 
-    # 7. 显示顶部滚动横幅（非阻塞）
+    # 8. 显示顶部滚动横幅（非阻塞）
     banner = ScrollingBanner(
         text=config.ui.banner_text,
         height=config.ui.banner_height
     )
     banner.show()
 
-    # 8. 启动后台线程执行自动化任务
+    # 9. 启动后台线程执行自动化任务
     # 确定基准目录：打包环境下为 exe 所在目录，开发环境下为代码所在目录
     if getattr(sys, 'frozen', False):
         base_dir = Path(sys.executable).parent

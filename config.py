@@ -135,6 +135,10 @@ class AppProcessConfig:
 
     # 可执行文件路径（用于检测不到进程时启动）
     exe_path: str = ""
+    # “上课”步骤的目标窗口类名
+    window_class_on_course: str = ""
+    # “登录”步骤的目标窗口类名
+    window_class_login: str = ""
     # 启动后等待时间（秒）
     startup_wait: float = 15.0
 
@@ -234,7 +238,7 @@ def default_config_dict() -> dict[str, Any]:
         "fallback_offsets": {"account_from_login": None, "password_from_login": None},
         "click_offsets": {"account": None, "password": None},
         "credentials": {"account": "", "password": ""},
-        "app": {"exe_path": "", "startup_wait": 5.0},
+        "app": {"exe_path": "", "window_class_on_course": "", "window_class_login": "", "startup_wait": 5.0},
         "ui": {
             "banner_text": "正在运行希沃白板自动登录 请勿触摸一体机",
             "banner_height": 80,

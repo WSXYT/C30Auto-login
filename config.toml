@@ -22,7 +22,7 @@ pause = 0.2
 # 模板匹配阈值（越高越严格）
 match_threshold = 0.82
 # 输入框最低阈值（降阈值下限）
-input_threshold_min = 0.45
+input_threshold_min = 0.6
 # 输入框降阈值步长
 input_threshold_step = 0.03
 # 点击后端：pyautogui / win32api / sendinput
@@ -71,5 +71,9 @@ password = ""
 [app]
 # C30 可执行文件路径（未检测到进程时用于启动）
 exe_path = "D:\\Program Files (x86)\\Datedu\\teach\\1.3.1460.0\\teach\\teachingtools\\teach.exe"
+# “上课”步骤的目标窗口类名（空则不限制）
+window_class_on_course = "ctrltool"
+# “登录”步骤的目标窗口类名（空则不限制）
+window_class_login = "loginer_iclass"
 # 启动后等待时间（秒）
 startup_wait = 15.0

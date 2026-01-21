@@ -40,6 +40,11 @@ try:
 except Exception:  # noqa: BLE001
     ctypes = None
 
+try:
+    import win32gui
+except Exception:  # noqa: BLE001
+    win32gui = None
+
 
 @dataclass
 class StepResult:
@@ -85,8 +90,6 @@ class C30ImageAutomator(QObject):
         ok = False
         if not self.account:
             logger.error("账号为空，请在参数或配置文件中填写")
-        elif not self.password:
-            logger.error("密码为空，请在参数或配置文件中填写")
         else:
             try:
                 # 1) 确保目标应用已启动
@@ -524,6 +527,7 @@ class C30ImageAutomator(QObject):
     def _clear_and_type(self, text: str) -> None:
         """清空输入框并输入文本。"""
 
+        self._sleep(0.5)
         pyautogui.hotkey("ctrl", "a")
         pyautogui.press("backspace")
         pyautogui.typewrite(text, interval=0.02)
@@ -607,10 +611,13 @@ class C30ImageAutomator(QObject):
 
         logger.info("正在执行：点击上课按钮")
         # 特殊规则：如果检测 2 次（或其他配置值）检测不到就回退步骤 0
+        # 预先获取模板尺寸，避免每次重试都重复计算（虽然 _get_window_region 内会计算，但 lambda 获取一次即可）
+        min_size = self._get_templates_size(self.config.templates.on_course)
+
         return self._retry(
             lambda att: self._wait_and_click(
                 self.config.templates.on_course,
-                self.config.regions.on_course,
+                self._get_window_region(self.config.app.window_class_on_course, min_size) or self.config.regions.on_course,
                 attempt=att
             ),
             "点击上课按钮",
@@ -620,13 +627,68 @@ class C30ImageAutomator(QObject):
     def _has_on_course_button(self) -> bool:
         """快速判断当前界面是否已出现“上课”按钮。"""
 
+        # 尝试获取目标窗口区域
+        min_size = self._get_templates_size(self.config.templates.on_course)
+        region = self._get_window_region(self.config.app.window_class_on_course, min_size=min_size)
+        if region is None:
+            region = self.config.regions.on_course
+
         match = find_template_center(
             [self._resolve_path(p) for p in self.config.templates.on_course],
             self.config.automation.match_threshold,
-            self.config.regions.on_course,
+            region,
             show_log=False,
         )
         return match is not None
+
+    def _get_templates_size(self, templates: list[str]) -> tuple[int, int]:
+        """获取模板列表中第一个有效模板的尺寸 (w, h)。"""
+        for path_str in templates:
+            try:
+                path = self._resolve_path(path_str)
+                # 使用 image_matcher 的加载函数（带缓存或直接读取）
+                # 这里简单直接加载，考虑到 _load_template 耗时较小且通常模板不多
+                img = _load_template(path)
+                if img is not None:
+                    h, w = img.shape[:2]
+                    return (w, h)
+            except Exception:
+                pass
+        # 默认返回较小尺寸作为兜底
+        return (10, 10)
+
+    def _get_window_region(self, class_name: str, min_size: tuple[int, int] | None = None) -> tuple[int, int, int, int] | None:
+        """获取指定类名窗口的屏幕区域 (x, y, w, h)。"""
+        if not class_name or win32gui is None:
+            return None
+        
+        try:
+            hwnd = win32gui.FindWindow(class_name, None)
+            if hwnd:
+                rect = win32gui.GetWindowRect(hwnd)
+                x, y, r, b = rect
+                w = r - x
+                h = b - y
+                
+                # 基础校验
+                if w <= 0 or h <= 0:
+                     return None
+
+                # 尺寸校验：窗口必须大于等于模板尺寸
+                if min_size:
+                    min_w, min_h = min_size
+                    if w < min_w or h < min_h:
+                        logger.warning(
+                            f"窗口 {class_name} 尺寸 ({w}x{h}) 小于模板尺寸 ({min_w}x{min_h})，回退到全局区域"
+                        )
+                        return None
+                
+                return (x, y, w, h)
+        except Exception:
+            pass
+        
+        logger.debug(f"未找到类名为 {class_name} 的窗口，回退到全局/默认区域")
+        return None
 
     def _step_open_sidebar(self) -> StepResult:
         """步骤 0：展开侧边栏（如需要）。"""
@@ -648,11 +710,13 @@ class C30ImageAutomator(QObject):
         """步骤 2：输入账号。"""
 
         logger.info("正在执行：输入账号")
+        min_size = self._get_templates_size(self.config.templates.account_input)
+        
         return self._retry(
             lambda att: self._wait_and_type(
                 self.config.templates.account_input,
                 self.account,
-                self.config.regions.login_area,
+                self._get_window_region(self.config.app.window_class_login, min_size) or self.config.regions.login_area,
                 self.config.fallback_offsets.account_from_login,
                 click_offset=self.config.click_offsets.account,
                 attempt=att
@@ -661,14 +725,20 @@ class C30ImageAutomator(QObject):
         )
 
     def _step_fill_password(self) -> StepResult:
-        """步骤 3：输入密码。"""
+        """步骤 3：输入密码（如果配置了密码）。"""
+
+        if not self.password:
+            logger.info("未配置密码，跳过输入密码步骤（假设已记住密码）")
+            return StepResult(True, "未配置密码，跳过")
 
         logger.info("正在执行：输入密码")
+        min_size = self._get_templates_size(self.config.templates.password_input)
+
         return self._retry(
             lambda att: self._wait_and_type(
                 self.config.templates.password_input,
                 self.password,
-                self.config.regions.login_area,
+                self._get_window_region(self.config.app.window_class_login, min_size) or self.config.regions.login_area,
                 self.config.fallback_offsets.password_from_login,
                 click_offset=self.config.click_offsets.password,
                 attempt=att
@@ -680,14 +750,18 @@ class C30ImageAutomator(QObject):
         """步骤 4：点击登录按钮（带验证逻辑）。"""
 
         logger.info("正在执行：点击登录")
+        min_size = self._get_templates_size(self.config.templates.login_button)
 
         # 内部重试逻辑：点击后检查按钮是否消失
         max_retries = 3
         for i in range(max_retries):
             # 1. 点击 (启用多阈值扫描)
+            # 注意：这里每次循环都重新获取 region，以防窗口移动/改变，但也带来了微小的性能开销
+            region = self._get_window_region(self.config.app.window_class_login, min_size) or self.config.regions.login_area
+            
             result = self._wait_and_click(
                 self.config.templates.login_button,
-                self.config.regions.login_area,
+                region,
                 timeout=5.0,  # 登录按钮点击不应等待太久
                 attempt=i + 1,
                 use_multi_threshold=True
@@ -710,9 +784,12 @@ class C30ImageAutomator(QObject):
     def _has_login_button(self) -> bool:
         """检查登录按钮当前是否可见。"""
         # 也使用多阈值扫描来确保一致性，但不显示日志
+        min_size = self._get_templates_size(self.config.templates.login_button)
+        region = self._get_window_region(self.config.app.window_class_login, min_size) or self.config.regions.login_area
+
         match = self._do_single_scan(
             self.config.templates.login_button,
-            self.config.regions.login_area,
+            region,
             attempt=None,
             show_log=False
         )
