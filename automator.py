@@ -89,14 +89,9 @@ class C30ImageAutomator(QObject):
             logger.error("密码为空，请在参数或配置文件中填写")
         else:
             try:
-                # 根据配置决定是否立即重启应用
-                if not self.config.automation.delay_restart_until_step0_fails:
-                    logger.info("配置为立即重启模式，正在重启应用...")
-                    self._ensure_app_running()
-                else:
-                    logger.info("配置为延迟重启模式，跳过初始重启，直接开始执行流程")
-                
-                # 校验模板图片是否存在
+                # 1) 确保目标应用已启动
+                self._ensure_app_running()
+                # 2) 校验模板图片是否存在
                 self._validate_templates()
 
                 # 定义步骤函数映射
@@ -148,16 +143,8 @@ class C30ImageAutomator(QObject):
 
                             logger.info(f"回退到步骤 {current_step} (当前累计回退 {fallback_count} 次)")
                         else:
-                            # 步骤0失败的处理
-                            if self.config.automation.delay_restart_until_step0_fails:
-                                logger.warning("步骤0失败且配置为延迟重启模式，正在重启应用...")
-                                self._ensure_app_running()
-                                logger.info("重启完成，从步骤1重新开始")
-                                current_step = 1
-                                fallback_count = 0
-                            else:
-                                # 立即重启模式下，步骤0失败直接报错
-                                raise RuntimeError(f"步骤 0 ({name}) 执行失败，无法继续")
+                            # 步骤0也失败了
+                            raise RuntimeError(f"步骤 0 ({name}) 执行失败，无法继续")
 
                 logger.success("登录流程全部完成")
                 ok = True

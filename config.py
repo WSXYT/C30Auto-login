@@ -71,8 +71,6 @@ class AutomationConfig:
     click_backend: str = "sendinput"
     # 调试等级：2 表示跳过步骤 1（点击上课按钮）
     debug_level: int = 0
-    # 延迟重启：为 True 时仅在步骤0失败后才重启应用，False 则程序开始就重启
-    delay_restart_until_step0_fails: bool = Trae
 
 
 @dataclass
@@ -212,7 +210,6 @@ def default_config_dict() -> dict[str, Any]:
             "input_threshold_step": 0.03,
             "click_backend": "pyautogui",
             "debug_level": 0,
-            "delay_restart_until_step0_fails": False,
         },
         "templates": {
             "sidebar_button": [
@@ -281,9 +278,6 @@ input_threshold_step = 0.03
 click_backend = "sendinput"
 # 调试等级：2 表示跳过点击上课按钮
 debug_level = 0
-# 延迟重启：为 true 时程序启动后不立即重启应用，仅在步骤0失败后才重启
-# 设置为 false 则保持默认行为（程序启动时立即重启应用）
-delay_restart_until_step0_fails = false
 
 [ui]
 # 顶部滚动条显示文字
