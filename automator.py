@@ -614,7 +614,7 @@ class C30ImageAutomator(QObject):
         # 预先获取模板尺寸，避免每次重试都重复计算（虽然 _get_window_region 内会计算，但 lambda 获取一次即可）
         min_size = self._get_templates_size(self.config.templates.on_course)
 
-        return self._retry(
+        result = self._retry(
             lambda att: self._wait_and_click(
                 self.config.templates.on_course,
                 self._get_window_region(self.config.app.window_class_on_course, min_size) or self.config.regions.on_course,
@@ -623,6 +623,12 @@ class C30ImageAutomator(QObject):
             "点击上课按钮",
             max_retries=self.config.automation.on_course_retries - 1
         )
+
+        if result.ok:
+             logger.info(f"点击上课按钮成功，等待 {self.config.automation.on_course_wait} 秒...")
+             self._sleep(self.config.automation.on_course_wait)
+
+        return result
 
     def _has_on_course_button(self) -> bool:
         """快速判断当前界面是否已出现“上课”按钮。"""

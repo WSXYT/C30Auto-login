@@ -139,7 +139,20 @@ def main() -> int:
     try:
         config_path = Path(args.config)
         config = load_config(config_path)
-        init_logger(level=config.logging.level, log_dir=config.logging.dir)
+        
+        # 确保日志目录是绝对路径 (基于 exe/脚本 所在目录)
+        # 如果 config.logging.dir 已经是绝对路径，Path(...) / ... 会自动忽略前面的部分
+        # 但为了保险，我们显式处理相对路径
+        log_dir = Path(config.logging.dir)
+        if not log_dir.is_absolute():
+            # 此时 base_dir 尚未定义，我们需要先获取 base_dir
+            if getattr(sys, 'frozen', False):
+                base_dir = Path(sys.executable).parent
+            else:
+                base_dir = Path(__file__).resolve().parent
+            log_dir = base_dir / log_dir
+
+        init_logger(level=config.logging.level, log_dir=log_dir)
     except Exception as e:
         # 配置加载失败属于严重错误，直接打印并退出
         print(f"配置文件加载失败: {e}")

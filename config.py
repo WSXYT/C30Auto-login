@@ -57,6 +57,8 @@ class AutomationConfig:
     on_course_retries: int = 2
     # 每次重试前的等待时间（秒）
     retry_interval: float = 0.5
+    # 点击“上课”按钮后的等待时间（秒）
+    on_course_wait: float = 5.0
     # 单步骤的最大等待时长（秒）
     step_timeout: float = 12.0
     # pyautogui 每一步动作之间的基础停顿（秒）
@@ -207,6 +209,7 @@ def default_config_dict() -> dict[str, Any]:
             "max_fallbacks": 5,
             "on_course_retries": 2,
             "retry_interval": 0.5,
+            "on_course_wait": 5.0,
             "step_timeout": 12.0,
             "pause": 0.2,
             "match_threshold": 0.82,
@@ -268,6 +271,10 @@ max_fallbacks = 5
 on_course_retries = 2
 # 重试间隔（秒）
 retry_interval = 0.5
+# 重试间隔（秒）
+retry_interval = 0.5
+# 点击“上课”按钮后的等待时间（秒）
+on_course_wait = 5.0
 # 单步骤等待超时（秒）
 step_timeout = 12.0
 # 每次鼠标/键盘动作间隔（秒）
