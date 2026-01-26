@@ -16,7 +16,7 @@ on_course_retries = 2
 # 重试间隔（秒）
 retry_interval = 0.5
 # 点击“上课”按钮后的等待时间（秒）
-on_course_wait = 5.0
+on_course_wait = 9.0
 # 单步骤等待超时（秒）
 step_timeout = 12.0
 # 每次鼠标/键盘动作间隔（秒）

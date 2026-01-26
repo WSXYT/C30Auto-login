@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from loguru import logger
@@ -35,6 +36,19 @@ else:
 DEFAULT_CONFIG_PATH = BASE_DIR / "config.toml"
 
 
+def _append_startup_error(message: str) -> None:
+    """把启动阶段的错误写入本地日志文件，避免无控制台时丢失信息。"""
+    try:
+        log_dir = BASE_DIR / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with (log_dir / "startup-error.log").open("a", encoding="utf-8") as f:
+            f.write(f"{timestamp} | {message}\n")
+    except Exception:
+        # 启动阶段不应因日志写入失败而中断
+        pass
+
+
 @dataclass
 class LoggingConfig:
     """日志配置。"""
@@ -58,7 +72,7 @@ class AutomationConfig:
     # 每次重试前的等待时间（秒）
     retry_interval: float = 0.5
     # 点击“上课”按钮后的等待时间（秒）
-    on_course_wait: float = 5.0
+    on_course_wait: float = 9.0
     # 单步骤的最大等待时长（秒）
     step_timeout: float = 12.0
     # pyautogui 每一步动作之间的基础停顿（秒）
@@ -209,7 +223,7 @@ def default_config_dict() -> dict[str, Any]:
             "max_fallbacks": 5,
             "on_course_retries": 2,
             "retry_interval": 0.5,
-            "on_course_wait": 5.0,
+            "on_course_wait": 9.0,
             "step_timeout": 12.0,
             "pause": 0.2,
             "match_threshold": 0.82,
@@ -271,10 +285,8 @@ max_fallbacks = 5
 on_course_retries = 2
 # 重试间隔（秒）
 retry_interval = 0.5
-# 重试间隔（秒）
-retry_interval = 0.5
 # 点击“上课”按钮后的等待时间（秒）
-on_course_wait = 5.0
+on_course_wait = 9.0
 # 单步骤等待超时（秒）
 step_timeout = 12.0
 # 每次鼠标/键盘动作间隔（秒）
@@ -377,8 +389,9 @@ def _load_config_data(path: Path) -> dict[str, Any]:
         raise ValueError("只支持 .toml 配置文件")
     if tomllib is None:
         raise ImportError("无法加载 TOML，请安装 tomli 或使用 Python 3.11+")
-    with path.open("rb") as f:
-        return tomllib.load(f)
+    raw = path.read_bytes()
+    text = _decode_toml_bytes(raw)
+    return tomllib.loads(text)
 
 
 def _write_default_config(path: Path) -> None:
@@ -390,28 +403,35 @@ def _write_default_config(path: Path) -> None:
     path.write_text(default_config_toml(), encoding="utf-8")
 
 
-def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> AppConfig:
-    """加载配置文件并返回 `AppConfig`。
+def _decode_toml_bytes(raw: bytes) -> str:
+    """解析 TOML 字节流，兼容 UTF-8/UTF-16/UTF-32 以及 BOM。"""
+    if raw.startswith(b"\xef\xbb\xbf"):
+        return raw.decode("utf-8-sig")
+    if raw.startswith((b"\xff\xfe\x00\x00", b"\x00\x00\xfe\xff")):
+        return raw.decode("utf-32")
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return raw.decode("utf-16")
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("gbk")
 
-    - 如果配置文件不存在，自动写入默认配置。
-    - 将用户配置与默认配置合并。
-    - 自动清理 JSON 中的注释字段（以 _ 开头）。
-    """
 
-    path = Path(path)
+def _backup_invalid_config(path: Path) -> Path | None:
+    """将无效配置文件改名备份，避免覆盖用户内容。"""
     if not path.exists():
-        # 确保目录存在，然后写入默认配置
-        path.parent.mkdir(parents=True, exist_ok=True)
-        _write_default_config(path)
+        return None
+    for idx in range(1, 100):
+        suffix = f"{path.suffix}.bad" if idx == 1 else f"{path.suffix}.bad{idx}"
+        candidate = path.with_suffix(suffix)
+        if not candidate.exists():
+            path.rename(candidate)
+            return candidate
+    return None
 
-    # 读取配置（支持 TOML/JSON）
-    data = _load_config_data(path)
 
-    # 与默认值合并，避免缺字段
-    merged = _merge(default_config_dict(), data)
-    logger.debug(f"已加载配置文件，并与默认值合并: {merged}")
-
-    # 逐个子配置构建 dataclass，便于类型检查与 IDE 友好提示
+def _build_config(merged: dict[str, Any]) -> AppConfig:
+    """根据合并后的配置字典构建 AppConfig。"""
     logging_cfg = LoggingConfig(**_clean_dict(merged.get("logging", {})))
     automation_cfg = AutomationConfig(**_clean_dict(merged.get("automation", {})))
     templates_cfg = TemplateConfig(**_clean_dict(merged.get("templates", {})))
@@ -443,3 +463,37 @@ def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> AppConfig:
         app=app_cfg,
         ui=ui_cfg,
     )
+
+
+def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> AppConfig:
+    """加载配置文件并返回 `AppConfig`。
+
+    - 如果配置文件不存在，自动写入默认配置。
+    - 将用户配置与默认配置合并。
+    - 自动清理 JSON 中的注释字段（以 _ 开头）。
+    """
+
+    path = Path(path)
+    if not path.exists():
+        # 确保目录存在，然后写入默认配置
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _write_default_config(path)
+
+    try:
+        data = _load_config_data(path)
+        merged = _merge(default_config_dict(), data)
+        logger.debug(f"已加载配置文件，并与默认值合并: {merged}")
+        return _build_config(merged)
+    except Exception as exc:
+        _append_startup_error(f"配置文件加载失败: {path} | {exc}")
+        try:
+            backup_path = _backup_invalid_config(path)
+            if backup_path is not None:
+                _append_startup_error(f"已备份无效配置: {backup_path}")
+            _write_default_config(path)
+            data = _load_config_data(path)
+            merged = _merge(default_config_dict(), data)
+            return _build_config(merged)
+        except Exception as recover_exc:
+            _append_startup_error(f"恢复默认配置失败: {recover_exc}")
+            raise
